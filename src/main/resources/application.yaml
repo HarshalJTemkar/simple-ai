@@ -2,11 +2,6 @@ server:
   port: 8090
   servlet:
     context-path: /simple-ai
-    encoding:
-      charset: UTF-8 #Charset of HTTP requests and responses. Default UTF-8
-      enabled: TRUE #Default TRUE
-  tomcat:
-    uri-encoding: UTF-8 #Character encoding to use to decode the URI. Default UTF-8
 
   compression:
     enabled: TRUE #Whether response compression is enabled. Default fasle
