@@ -11,7 +11,9 @@ public class ChatClientConfig {
 
 	@Bean
     @Profile("ollama")
-	ChatClient ollamaChatClient(OllamaChatModel ollamaChatModel) {
+	ChatClient ollamaChatClient(
+			OllamaChatModel ollamaChatModel) {
+		
         return ChatClient.builder(ollamaChatModel).build();
     }
 }
