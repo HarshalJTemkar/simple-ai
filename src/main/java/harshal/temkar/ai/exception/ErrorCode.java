@@ -15,7 +15,8 @@ public enum ErrorCode {
 	TIMEOUT_ERROR("AI-4001", "Request timeout", HttpStatus.REQUEST_TIMEOUT),
 	INTERNAL_ERROR("AI-5001", "Internal server error", HttpStatus.INTERNAL_SERVER_ERROR),
 	PROMPT_TOO_LONG("AI-1002", "Prompt exceeds maximum length", HttpStatus.BAD_REQUEST),
-	INVALID_MODEL("AI-1003", "Invalid model specified", HttpStatus.BAD_REQUEST);
+	INVALID_MODEL("AI-1003", "Invalid model specified", HttpStatus.BAD_REQUEST),
+	STREAMING_ERROR("AI-6001", "Streaming error occurred", HttpStatus.INTERNAL_SERVER_ERROR);
 
 	private final String code;
 	private final String message;
