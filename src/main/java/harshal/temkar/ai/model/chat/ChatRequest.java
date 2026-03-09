@@ -21,4 +21,8 @@ public class ChatRequest {
     private String model; // Optional model override
     
     private Double temperature; // Optional temperature override
+    
+    private Boolean stream; // Enable streaming mode (default: false)
+    
+    private Integer maxTokens; // Maximum tokens to generate
 }

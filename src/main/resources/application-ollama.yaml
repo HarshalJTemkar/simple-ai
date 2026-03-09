@@ -6,6 +6,7 @@ spring:
         model: ${AI_OLLAMA_MODEL}
         options:
           temperature: ${AI_OLLAMA_TEMPRATURE}
+          stream: true  # Enable streaming support
 
     retry:
       max-attempts: ${AI_RETRY_ATTEMPT} #Maximum number of retry attempts. default is 10
