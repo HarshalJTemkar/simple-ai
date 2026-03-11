@@ -12,17 +12,12 @@ public class ChatRequest {
     @Size(min = 1, 
     		max = 4000, 
     		message = "Message must be between 1 and 4000 characters")
-    private String message;
-    
+    private String message;    
     @Size(max = 100, 
     		message = "Session ID cannot exceed 100 characters")
-    private String sessionId; // For conversation context
-    
-    private String model; // Optional model override
-    
-    private Double temperature; // Optional temperature override
-    
+    private String sessionId; // For conversation context    
+    private String model; // Optional model override   
+    private Double temperature; // Optional temperature override 
     private Boolean stream; // Enable streaming mode (default: false)
-    
     private Integer maxTokens; // Maximum tokens to generate
 }

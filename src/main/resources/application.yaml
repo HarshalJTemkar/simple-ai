@@ -15,3 +15,40 @@ spring:
 
   profiles:
     active: ollama
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+
+
+app:
+  conversation:
+    cache:
+      type: ${CACHE_TYPE:local}  # local, redis, or dynamodb
+      max-size: 1000
+      ttl-minutes: 60
+      max-messages-per-session: 50
+
+      # Redis specific
+      redis-key-prefix: "conversation:"
+
+      # DynamoDB specific
+      dynamodb-table-name: ${DYNAMODB_TABLE:conversations}
+      dax-endpoint: ${DAX_ENDPOINT:}  # Optional
+
+
+
+aws:
+  accessKey: ${AWS_ACCESS_KEY_ID:ignore}
+  secretKey: ${AWS_SECRET_ACCESS_KEY:ignore}
+  token: ${AWS_SESSION_TOKEN:ignore}
+  region: ${AWS_REGION:eu-central-1}
