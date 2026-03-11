@@ -11,4 +11,5 @@ public class RateLimitException extends AiException {
     	
         super(ErrorCode.RATE_LIMIT_EXCEEDED, details, cause);
     }
+    
 }
