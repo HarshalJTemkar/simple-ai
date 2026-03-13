@@ -1,107 +1,109 @@
 package harshal.temkar.ai.service.chat;
 
-import harshal.temkar.ai.conversation.model.ConversationMessage;
-import harshal.temkar.ai.conversation.service.IConversationService;
+import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.stereotype.Service;
+
 import harshal.temkar.ai.exception.AiException;
 import harshal.temkar.ai.exception.ErrorCode;
 import harshal.temkar.ai.model.chat.ChatRequest;
 import harshal.temkar.ai.model.chat.ChatResponse;
 import harshal.temkar.ai.model.chat.StreamingChatResponse;
+import harshal.temkar.ai.model.chat.AIModel;
+import harshal.temkar.ai.model.conversation.ConversationMessage;
+import harshal.temkar.ai.service.conversation.IConversationService;
 import harshal.temkar.ai.util.TokenCounter;
 import harshal.temkar.ai.util.TokenUsage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements IChatService {
 
-    private final ChatClient chatClient;
+    private final ModelSelector modelSelector;
     private final TokenCounter tokenCounter;
     private final IConversationService conversationService;
 
     @Override
     public ChatResponse ask(ChatRequest request) {
         try {
-            log.debug("Processing chat request for session: {}", request.getSessionId());
+            // Get model from request or use default
+            AIModel model = resolveModel(request);
             
-            // Build prompt with conversation context if sessionId provided
-            String promptMessage = request.getMessage();
-            if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
-                promptMessage = conversationService.buildPromptWithContext(
-                    request.getSessionId(), 
-                    request.getMessage(), 
-                    5 // Last 5 messages for context
-                );
-                log.debug("Added conversation context for session: {}", request.getSessionId());
-            }
+            log.debug("Processing chat request - Model: {} ({}), Session: {}", 
+                      model, model.getModelName(), request.getSessionId());
             
+            // Select ChatClient based on model
+            ChatClient chatClient = modelSelector.selectClient(model);
+            
+            // Build prompt with context
+            String promptMessage = buildPromptWithContext(request);
+            
+            // Build and execute request
             ChatClient.ChatClientRequestSpec spec = chatClient
                     .prompt()
                     .user(promptMessage);
             
+            spec = applyOptions(spec, request, model);
+            
             String response = spec.call().content();
             
-            // Calculate token usage
+            // Calculate tokens
             TokenUsage usage = tokenCounter.calculateUsage(request.getMessage(), response);
             
-            // Save conversation messages
-            if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
-                saveConversationMessages(request.getSessionId(), request.getMessage(), response, usage);
-            }
+            // Save conversation
+            saveConversation(request.getSessionId(), request.getMessage(), response, usage);
             
-            log.debug("AI response generated. Session: {}, Tokens: {}", 
-                      request.getSessionId(), usage.getTotalTokens());
+            log.debug("Chat completed - Model: {}, Tokens: {}", 
+                      model.getModelName(), usage.getTotalTokens());
             
-            ChatResponse chatResponse = new ChatResponse(response, request.getSessionId(), usage);
-            
-            return chatResponse;
+            return new ChatResponse(response, request.getSessionId(), usage);
             
         } catch (Exception ex) {
-            log.error("Failed to process chat request for session: {}", request.getSessionId(), ex);
+            log.error("Chat failed - Session: {}", request.getSessionId(), ex);
             throw new AiException(ErrorCode.AI_SERVICE_ERROR, 
-                                  "Failed to communicate with AI service", ex);
+                                  "Failed to communicate with AI service: " + ex.getMessage(), ex);
         }
     }
 
     @Override
     public Flux<StreamingChatResponse> askStreaming(ChatRequest request) {
         try {
-            log.debug("Processing streaming chat request for session: {}", request.getSessionId());
+            AIModel model = resolveModel(request);
+            
+            log.debug("Processing streaming request - Model: {}, Session: {}", 
+                      model.getModelName(), request.getSessionId());
             
             String messageId = UUID.randomUUID().toString();
-            AtomicInteger currentTokenCount = new AtomicInteger(0);
+            AtomicInteger tokenCount = new AtomicInteger(0);
             StringBuilder fullResponse = new StringBuilder();
             
-            // Build prompt with context
-            String promptMessage = request.getMessage();
-            if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
-                promptMessage = conversationService.buildPromptWithContext(
-                    request.getSessionId(), 
-                    request.getMessage(), 
-                    5
-                );
-            }
+            // Select ChatClient
+            ChatClient chatClient = modelSelector.selectClient(model);
+            
+            // Build prompt
+            String promptMessage = buildPromptWithContext(request);
             
             ChatClient.ChatClientRequestSpec spec = chatClient
                     .prompt()
                     .user(promptMessage);
-
+            
+            spec = applyOptions(spec, request, model);
+            
             Flux<String> contentFlux = spec.stream().content();
             
             return contentFlux
                     .map(token -> {
                         fullResponse.append(token);
-                        int tokenCount = tokenCounter.estimateTokenCount(token);
-                        currentTokenCount.addAndGet(tokenCount);
+                        int count = tokenCounter.estimateTokenCount(token);
+                        tokenCount.addAndGet(count);
                         
                         return StreamingChatResponse.builder()
                                 .id(messageId)
@@ -109,44 +111,30 @@ public class ChatServiceImpl implements IChatService {
                                 .sessionId(request.getSessionId())
                                 .done(false)
                                 .timestamp(LocalDateTime.now())
-                                .currentTokens(tokenCount)
+                                .currentTokens(count)
                                 .build();
                     })
                     .concatWith(Flux.just(
-                            createFinalStreamingResponse(
-                                    messageId,
-                                    request,
-                                    fullResponse.toString(),
-                                    currentTokenCount.get()
-                            )
+                            buildFinalResponse(messageId, request, fullResponse.toString(), tokenCount.get())
                     ))
                     .doOnComplete(() -> {
-                        // Save conversation after streaming completes
-                        if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
-                            TokenUsage usage = tokenCounter.calculateUsage(
-                                request.getMessage(), 
-                                fullResponse.toString()
-                            );
-                            saveConversationMessages(
-                                request.getSessionId(), 
-                                request.getMessage(), 
-                                fullResponse.toString(), 
-                                usage
-                            );
-                        }
-                        log.debug("Streaming completed. Session: {}, Total tokens: {}", 
-                                  request.getSessionId(), currentTokenCount.get());
+                        TokenUsage usage = tokenCounter.calculateUsage(
+                            request.getMessage(), 
+                            fullResponse.toString()
+                        );
+                        saveConversation(request.getSessionId(), request.getMessage(), 
+                                       fullResponse.toString(), usage);
+                        log.debug("Streaming completed - Tokens: {}", tokenCount.get());
                     })
                     .doOnError(error -> 
-                        log.error("Streaming failed for session: {}", request.getSessionId(), error)
+                        log.error("Streaming failed - Session: {}", request.getSessionId(), error)
                     );
                     
         } catch (Exception ex) {
-            log.error("Failed to initialize streaming for session: {}", request.getSessionId(), ex);
-            
+            log.error("Streaming initialization failed", ex);
             return Flux.just(
                     StreamingChatResponse.builder()
-                            .error("Failed to start streaming")
+                            .error("Failed to start streaming: " + ex.getMessage())
                             .errorCode(ErrorCode.AI_SERVICE_ERROR.getCode())
                             .sessionId(request.getSessionId())
                             .done(true)
@@ -156,16 +144,84 @@ public class ChatServiceImpl implements IChatService {
         }
     }
     
-    private StreamingChatResponse createFinalStreamingResponse(
-            String messageId,
-            ChatRequest request,
-            String fullResponse,
-            int completionTokens) {
+    // ==================== HELPER METHODS ====================
+    
+    /**
+     * Resolve AIModel from request or use default
+     */
+    private AIModel resolveModel(ChatRequest request) {
+        if (request.getProviderModel() != null) {
+            return request.getProviderModel();
+        }
         
-        TokenUsage usage = tokenCounter.calculateUsage(
+        // Use default model from configuration
+        AIModel defaultModel = modelSelector.getDefaultModel();
+        log.debug("No model specified in request, using default: {}", defaultModel);
+        return defaultModel;
+    }
+    
+    private String buildPromptWithContext(ChatRequest request) {
+        if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
+            return conversationService.buildPromptWithContext(
+                request.getSessionId(), 
                 request.getMessage(), 
-                fullResponse
-        );
+                5
+            );
+        }
+        return request.getMessage();
+    }
+    
+    private ChatClient.ChatClientRequestSpec applyOptions(
+            ChatClient.ChatClientRequestSpec spec, ChatRequest request, AIModel model) {
+        
+        ChatOptions.Builder optionsBuilder = ChatOptions.builder();
+        
+        // Always set the model name
+        optionsBuilder.model(model.getModelName());
+        log.debug("Using model: {}", model.getModelName());
+        
+        if (request.getTemperature() != null) {
+            optionsBuilder.temperature(request.getTemperature());
+        }
+        
+        if (request.getMaxTokens() != null) {
+            optionsBuilder.maxTokens(request.getMaxTokens());
+        }
+        
+        spec.options(optionsBuilder.build());
+        return spec;
+    }
+    
+    private void saveConversation(String sessionId, String userMessage, 
+                                  String assistantMessage, TokenUsage usage) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        
+        try {
+            conversationService.saveMessage(sessionId, ConversationMessage.builder()
+                    .messageId(UUID.randomUUID().toString())
+                    .role("user")
+                    .content(userMessage)
+                    .timestamp(LocalDateTime.now())
+                    .tokenCount(usage.getPromptTokens())
+                    .build());
+            
+            conversationService.saveMessage(sessionId, ConversationMessage.builder()
+                    .messageId(UUID.randomUUID().toString())
+                    .role("assistant")
+                    .content(assistantMessage)
+                    .timestamp(LocalDateTime.now())
+                    .tokenCount(usage.getCompletionTokens())
+                    .build());
+        } catch (Exception ex) {
+            log.error("Failed to save conversation", ex);
+        }
+    }
+    
+    private StreamingChatResponse buildFinalResponse(String messageId, ChatRequest request, 
+                                                     String fullResponse, int totalTokens) {
+        TokenUsage usage = tokenCounter.calculateUsage(request.getMessage(), fullResponse);
         
         return StreamingChatResponse.builder()
                 .id(messageId)
@@ -175,32 +231,5 @@ public class ChatServiceImpl implements IChatService {
                 .timestamp(LocalDateTime.now())
                 .usage(usage)
                 .build();
-    }
-    
-    private void saveConversationMessages(String sessionId, String userMessage, 
-                                         String assistantMessage, TokenUsage usage) {
-        try {
-            // Save user message
-            conversationService.saveMessage(sessionId, ConversationMessage.builder()
-                    .messageId(UUID.randomUUID().toString())
-                    .role("user")
-                    .content(userMessage)
-                    .timestamp(LocalDateTime.now())
-                    .tokenCount(usage.getPromptTokens())
-                    .build());
-            
-            // Save assistant message
-            conversationService.saveMessage(sessionId, ConversationMessage.builder()
-                    .messageId(UUID.randomUUID().toString())
-                    .role("assistant")
-                    .content(assistantMessage)
-                    .timestamp(LocalDateTime.now())
-                    .tokenCount(usage.getCompletionTokens())
-                    .build());
-                    
-            log.debug("Saved conversation messages for session: {}", sessionId);
-        } catch (Exception ex) {
-            log.error("Failed to save conversation messages", ex);
-        }
     }
 }

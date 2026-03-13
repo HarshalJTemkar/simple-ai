@@ -15,9 +15,8 @@ public class ChatRequest {
     private String message;    
     @Size(max = 100, 
     		message = "Session ID cannot exceed 100 characters")
-    private String sessionId; // For conversation context    
-    private String model; // Optional model override   
+    private String sessionId; // For conversation context
+    private AIModel providerModel; //provider (ollama, openai, anthropic) with model  
     private Double temperature; // Optional temperature override 
-    private Boolean stream; // Enable streaming mode (default: false)
     private Integer maxTokens; // Maximum tokens to generate
 }

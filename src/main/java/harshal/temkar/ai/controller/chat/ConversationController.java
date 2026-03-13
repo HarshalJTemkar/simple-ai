@@ -1,8 +1,8 @@
 package harshal.temkar.ai.controller.chat;
 
-import harshal.temkar.ai.conversation.model.ConversationContext;
-import harshal.temkar.ai.conversation.model.ConversationSummary;
-import harshal.temkar.ai.conversation.service.IConversationService;
+import harshal.temkar.ai.model.conversation.ConversationContext;
+import harshal.temkar.ai.model.conversation.ConversationSummary;
+import harshal.temkar.ai.service.conversation.IConversationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
