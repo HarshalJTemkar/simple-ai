@@ -1,8 +1,8 @@
 package harshal.temkar.ai.conversation.repository;
 
-import harshal.temkar.ai.conversation.model.ConversationContext;
-
 import java.util.Optional;
+
+import harshal.temkar.ai.model.conversation.ConversationContext;
 
 public interface IConversationRepository {
     
@@ -15,6 +15,4 @@ public interface IConversationRepository {
     boolean exists(String sessionId);
     
     void clear();
-    
-    String getCacheType();
 }

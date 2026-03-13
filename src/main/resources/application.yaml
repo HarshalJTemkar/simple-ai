@@ -13,42 +13,35 @@ spring:
 #  main:
 #    web-application-type: NONE #if Web dependency is not added
 
-  profiles:
-    active: ollama
+  ai:
+    ollama:
+      base-url: ${AI_OLLAMA_URL:http://localhost:11434}
 
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      timeout: 2000ms
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:ignore}
+      base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
 
+    retry:
+      max-attempts: ${AI_RETRY_ATTEMPT:3}
 
 
 app:
+  # AI Models Configuration
+  ai:
+    models:
+      default-provider-model: ${DEFAULT_AI_PROVIDER_MODEL:OLLAMA_LLAMA3}
+      providers:
+        ollama:
+          enabled: true
+          default-temperature: 0.7
+          max-tokens: 2048
+        anthropic:
+          enabled: ${ANTHROPIC_ENABLED:false}
+          default-temperature: 0.7
+          max-tokens: 4096
+
   conversation:
     cache:
-      type: ${CACHE_TYPE:local}  # local, redis, or dynamodb
       max-size: 1000
       ttl-minutes: 60
       max-messages-per-session: 50
-
-      # Redis specific
-      redis-key-prefix: "conversation:"
-
-      # DynamoDB specific
-      dynamodb-table-name: ${DYNAMODB_TABLE:conversations}
-      dax-endpoint: ${DAX_ENDPOINT:}  # Optional
-
-
-
-aws:
-  accessKey: ${AWS_ACCESS_KEY_ID:ignore}
-  secretKey: ${AWS_SECRET_ACCESS_KEY:ignore}
-  token: ${AWS_SESSION_TOKEN:ignore}
-  region: ${AWS_REGION:eu-central-1}
