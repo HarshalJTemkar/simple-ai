@@ -16,6 +16,8 @@ spring:
   ai:
     ollama:
       base-url: ${AI_OLLAMA_URL:http://localhost:11434}
+      embedding:
+        model: ${AI_OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
 
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:ignore}
@@ -23,6 +25,28 @@ spring:
 
     retry:
       max-attempts: ${AI_RETRY_ATTEMPT:3}
+
+    vectorstore:
+      pgvector:
+        initialize-schema: TRUE
+        dimensions: 768 # Depends on embedding model
+        distance-type: COSINE_DISTANCE
+
+
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/simple_ai}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 
 app:
@@ -45,3 +69,20 @@ app:
       max-size: 1000
       ttl-minutes: 60
       max-messages-per-session: 50
+
+  rag:
+    enabled: true
+    chunking:
+      chunk-size: 500
+      chunk-overlap: 50
+      strategy: sentence # sentence, paragraph, fixed
+    retrieval:
+      top-k: 5 # How many document chunks to retrieve
+      similarity-threshold: 0.5 # Minimum relevance score (0-1)
+      search-type: similarity
+    prompts:
+      rag-template: rag-prompt.txt
+      no-context-template: no-context-prompt.txt
+      citation-guidelines: citation-guidelines.txt
+
+
