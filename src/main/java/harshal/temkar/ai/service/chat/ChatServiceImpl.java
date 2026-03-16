@@ -13,7 +13,6 @@ import harshal.temkar.ai.exception.ErrorCode;
 import harshal.temkar.ai.model.chat.ChatRequest;
 import harshal.temkar.ai.model.chat.ChatResponse;
 import harshal.temkar.ai.model.chat.StreamingChatResponse;
-import harshal.temkar.ai.model.chat.AIModel;
 import harshal.temkar.ai.model.conversation.ConversationMessage;
 import harshal.temkar.ai.service.conversation.IConversationService;
 import harshal.temkar.ai.util.TokenCounter;
@@ -34,14 +33,11 @@ public class ChatServiceImpl implements IChatService {
     @Override
     public ChatResponse ask(ChatRequest request) {
         try {
-            // Get model from request or use default
-            AIModel model = resolveModel(request);
+            log.debug("Processing chat request - Provider: {}, Session: {}", 
+                      getProviderName(request), request.getSessionId());
             
-            log.debug("Processing chat request - Model: {} ({}), Session: {}", 
-                      model, model.getModelName(), request.getSessionId());
-            
-            // Select ChatClient based on model
-            ChatClient chatClient = modelSelector.selectClient(model);
+            // Select ChatClient
+            ChatClient chatClient = selectChatClient(request);
             
             // Build prompt with context
             String promptMessage = buildPromptWithContext(request);
@@ -51,7 +47,7 @@ public class ChatServiceImpl implements IChatService {
                     .prompt()
                     .user(promptMessage);
             
-            spec = applyOptions(spec, request, model);
+            spec = applyOptions(spec, request);
             
             String response = spec.call().content();
             
@@ -61,13 +57,14 @@ public class ChatServiceImpl implements IChatService {
             // Save conversation
             saveConversation(request.getSessionId(), request.getMessage(), response, usage);
             
-            log.debug("Chat completed - Model: {}, Tokens: {}", 
-                      model.getModelName(), usage.getTotalTokens());
+            log.debug("Chat completed - Provider: {}, Tokens: {}", 
+                      getProviderName(request), usage.getTotalTokens());
             
             return new ChatResponse(response, request.getSessionId(), usage);
             
         } catch (Exception ex) {
-            log.error("Chat failed - Session: {}", request.getSessionId(), ex);
+            log.error("Chat failed - Provider: {}, Session: {}", 
+                      getProviderName(request), request.getSessionId(), ex);
             throw new AiException(ErrorCode.AI_SERVICE_ERROR, 
                                   "Failed to communicate with AI service: " + ex.getMessage(), ex);
         }
@@ -76,17 +73,15 @@ public class ChatServiceImpl implements IChatService {
     @Override
     public Flux<StreamingChatResponse> askStreaming(ChatRequest request) {
         try {
-            AIModel model = resolveModel(request);
-            
-            log.debug("Processing streaming request - Model: {}, Session: {}", 
-                      model.getModelName(), request.getSessionId());
+            log.debug("Processing streaming request - Provider: {}, Session: {}", 
+                      getProviderName(request), request.getSessionId());
             
             String messageId = UUID.randomUUID().toString();
             AtomicInteger tokenCount = new AtomicInteger(0);
             StringBuilder fullResponse = new StringBuilder();
             
             // Select ChatClient
-            ChatClient chatClient = modelSelector.selectClient(model);
+            ChatClient chatClient = selectChatClient(request);
             
             // Build prompt
             String promptMessage = buildPromptWithContext(request);
@@ -95,7 +90,7 @@ public class ChatServiceImpl implements IChatService {
                     .prompt()
                     .user(promptMessage);
             
-            spec = applyOptions(spec, request, model);
+            spec = applyOptions(spec, request);
             
             Flux<String> contentFlux = spec.stream().content();
             
@@ -146,18 +141,11 @@ public class ChatServiceImpl implements IChatService {
     
     // ==================== HELPER METHODS ====================
     
-    /**
-     * Resolve AIModel from request or use default
-     */
-    private AIModel resolveModel(ChatRequest request) {
+    private ChatClient selectChatClient(ChatRequest request) {
         if (request.getProviderModel() != null) {
-            return request.getProviderModel();
+            return modelSelector.selectClient(request.getProviderModel().getProviderName());
         }
-        
-        // Use default model from configuration
-        AIModel defaultModel = modelSelector.getDefaultModel();
-        log.debug("No model specified in request, using default: {}", defaultModel);
-        return defaultModel;
+        return modelSelector.getDefaultClient();
     }
     
     private String buildPromptWithContext(ChatRequest request) {
@@ -172,13 +160,13 @@ public class ChatServiceImpl implements IChatService {
     }
     
     private ChatClient.ChatClientRequestSpec applyOptions(
-            ChatClient.ChatClientRequestSpec spec, ChatRequest request, AIModel model) {
+            ChatClient.ChatClientRequestSpec spec, ChatRequest request) {
         
         ChatOptions.Builder optionsBuilder = ChatOptions.builder();
         
-        // Always set the model name
-        optionsBuilder.model(model.getModelName());
-        log.debug("Using model: {}", model.getModelName());
+        if (request.getProviderModel() != null) {
+            optionsBuilder.model(request.getProviderModel().getModelName());
+        }
         
         if (request.getTemperature() != null) {
             optionsBuilder.temperature(request.getTemperature());
@@ -231,5 +219,11 @@ public class ChatServiceImpl implements IChatService {
                 .timestamp(LocalDateTime.now())
                 .usage(usage)
                 .build();
+    }
+    
+    private String getProviderName(ChatRequest request) {
+        return request.getProviderModel() != null 
+            ? request.getProviderModel().getProviderName() 
+            : "default";
     }
 }

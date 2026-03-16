@@ -2,6 +2,13 @@ server:
   port: 8090
   servlet:
     context-path: /simple-ai
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    max-connections: 10000
+    connection-timeout: 20000 # in milliseconds
+    accept-count: 100
 
   compression:
     enabled: TRUE #Whether response compression is enabled. Default fasle
@@ -16,6 +23,8 @@ spring:
   ai:
     ollama:
       base-url: ${AI_OLLAMA_URL:http://localhost:11434}
+      embedding:
+        model: ${AI_OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
 
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:ignore}
@@ -23,6 +32,50 @@ spring:
 
     retry:
       max-attempts: ${AI_RETRY_ATTEMPT:3}
+
+    vectorstore:
+      pgvector:
+        initialize-schema: TRUE
+        dimensions: 768 # Depends on embedding model
+        distance-type: COSINE_DISTANCE
+
+
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/simple_ai}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL:20}
+      minimum-idle: ${HIKARI_MIN_IDLE:5}
+      connection-timeout: ${HIKARI_CONN_TIMEOUT:30000}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT:600000}
+      max-lifetime: ${HIKARI_MAX_LIFETIME:1800000}
+      pool-name: ${HIKARI_POOL_NAME:SimpleAI-HikariCP}
+      leak-detection-threshold: ${HIKARI_LEAK_THRESHOLD:60000}
+      auto-commit: false
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+        implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+    show-sql: FALSE
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        '[format_sql]': TRUE
+        '[highlight_sql]': TRUE
+        jdbc:
+          '[batch_size]': 100
+          '[order_inserts]': TRUE
+          '[order_updates]': TRUE
+        
+
 
 
 app:
@@ -45,3 +98,33 @@ app:
       max-size: 1000
       ttl-minutes: 60
       max-messages-per-session: 50
+
+  rag:
+    enabled: true
+    chunking:
+      chunk-size: 500
+      chunk-overlap: 50
+      strategy: sentence # sentence, paragraph, fixed
+    retrieval:
+      top-k: 5 # How many document chunks to retrieve
+      similarity-threshold: 0.5 # Minimum relevance score (0-1)
+      search-type: similarity
+    prompts:
+      rag-template: rag-prompt.txt
+      no-context-template: no-context-prompt.txt
+      citation-guidelines: citation-guidelines.txt
+
+  prompt:
+    enabled: true
+    default-role: assistant
+    max-prompt-length: 8000
+    optimization:
+      enabled: true
+      trim-whitespace: true
+      remove-empty-lines: true
+      max-system-prompt-length: 2000
+      max-context-length: 6000
+    templates:
+      system-path: templates/prompts/system/
+      task-path: templates/prompts/task/
+      rag-path: templates/prompts/rag/

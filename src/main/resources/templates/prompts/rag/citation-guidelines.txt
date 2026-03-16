@@ -1,0 +1,20 @@
+### Citation Guidelines:
+
+1. **When to Cite:**
+   - Only cite when <source> tag has an explicit id attribute
+   - Use format: [id] (e.g., [1], [2])
+   - Place citation immediately after the relevant statement
+
+2. **When NOT to Cite:**
+   - If <source> tag lacks an id attribute
+   - For general knowledge not from context
+   - For clarifying questions
+
+3. **Citation Format:**
+   - Correct: "The system uses Java 21 [1]."
+   - Incorrect: "The system uses Java 21 <source id='1'>."
+   - Incorrect: "The system uses Java 21 (Source 1)."
+
+4. **Multiple Citations:**
+   - Use: "The application runs on port 8090 [1] with Ollama integration [2]."
+   - Place each citation right after its relevant fact
