@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,6 +51,7 @@ public class ModelController {
         summary = "Get all model information", 
         description = "Get all AIModel enums with provider, model, enabled status, and accessibility by actually testing each model"
     )
+    @Cacheable(value = "modelInfo", cacheManager = "responseCacheManager")
     public ResponseEntity<List<ModelInfo>> getAllModelsInfo() {
         log.info("Fetching all models information from AIModel enum");
         
