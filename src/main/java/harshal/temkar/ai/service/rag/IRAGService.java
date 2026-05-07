@@ -7,5 +7,9 @@ public interface IRAGService {
     
     RAGContext retrieveContext(String query);
     
+    RAGContext retrieveContext(String query, RagOptions options);
+    
     CitedResponse askWithRAG(String query, String sessionId);
+    
+    CitedResponse askWithRAG(String query, String sessionId, RagOptions options);
 }

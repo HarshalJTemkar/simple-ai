@@ -1,6 +1,8 @@
 package harshal.temkar.ai.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -72,6 +75,55 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(errorResponse);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(
+            ConstraintViolationException ex,
+            HttpServletRequest request) {
+
+        String correlationId = getCorrelationId();
+        Map<String, String> validationErrors = new HashMap<>();
+        for (ConstraintViolation<?> v : ex.getConstraintViolations()) {
+            String path = v.getPropertyPath() != null ? v.getPropertyPath().toString() : "param";
+            // strip method prefix e.g. "uploadDocument.metadata" -> "metadata"
+            int dot = path.lastIndexOf('.');
+            String field = dot >= 0 ? path.substring(dot + 1) : path;
+            validationErrors.put(field, v.getMessage());
+        }
+
+        log.error("Constraint violation. CorrelationId: {}, Errors: {}", correlationId, validationErrors);
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .errorCode(ErrorCode.VALIDATION_ERROR.getCode())
+                .message(ErrorCode.VALIDATION_ERROR.getMessage())
+                .timestamp(LocalDateTime.now())
+                .path(request.getRequestURI())
+                .correlationId(correlationId)
+                .validationErrors(validationErrors)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUpload(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request) {
+
+        String correlationId = getCorrelationId();
+        log.warn("Upload too large. CorrelationId: {}, Details: {}", correlationId, ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .errorCode(ErrorCode.FILE_TOO_LARGE.getCode())
+                .message(ErrorCode.FILE_TOO_LARGE.getMessage())
+                .details(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .path(request.getRequestURI())
+                .correlationId(correlationId)
+                .build();
+
+        return ResponseEntity.status(ErrorCode.FILE_TOO_LARGE.getHttpStatus()).body(errorResponse);
     }
 
     @ExceptionHandler(Exception.class)

@@ -123,17 +123,18 @@ public class DocumentServiceImpl implements IDocumentService {
     }
 
     private List<Document> createDocuments(List<String> chunks, DocumentEntity documentEntity) {
-        return chunks.stream()
-                .map(chunk -> {
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.put("documentId", documentEntity.getId());
-                    metadata.put("filename", documentEntity.getFilename());
-                    metadata.put("chunkIndex", chunks.indexOf(chunk));
-                    
-                    String id = UUID.randomUUID().toString();
-                    return new Document(id, chunk, metadata);
-                })
-                .collect(Collectors.toList());
+        List<Document> docs = new java.util.ArrayList<>(chunks.size());
+        for (int i = 0; i < chunks.size(); i++) {
+            String chunk = chunks.get(i);
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("documentId", documentEntity.getId());
+            metadata.put("filename", documentEntity.getFilename());
+            metadata.put("chunkIndex", i);
+
+            String id = UUID.randomUUID().toString();
+            docs.add(new Document(id, chunk, metadata));
+        }
+        return docs;
     }
 
     private void saveChunkMetadata(List<Document> documents, Long documentId) {

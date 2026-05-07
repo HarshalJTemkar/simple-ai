@@ -9,6 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -93,5 +96,25 @@ public class ModelSelector {
      */
     public Set<String> getAvailableProviders() {
         return chatClientRegistry.keySet();
+    }
+
+    /**
+     * Build an ordered fallback chain of provider names.
+     * Order: requested provider (if any) → default provider → all remaining registered providers.
+     */
+    public List<String> buildFallbackChain(String preferredProvider) {
+        LinkedHashSet<String> ordered = new LinkedHashSet<>();
+        if (preferredProvider != null && !preferredProvider.isBlank()
+                && isProviderAvailable(preferredProvider)) {
+            ordered.add(preferredProvider.toLowerCase());
+        }
+        String def = modelProperties.getDefaultProvider();
+        if (def != null && isProviderAvailable(def)) {
+            ordered.add(def.toLowerCase());
+        }
+        for (String p : chatClientRegistry.keySet()) {
+            ordered.add(p.toLowerCase());
+        }
+        return new ArrayList<>(ordered);
     }
 }
