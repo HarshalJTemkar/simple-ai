@@ -6,15 +6,19 @@ import harshal.temkar.ai.service.chat.IChatService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
@@ -42,8 +46,8 @@ public class StreamingChatController {
     @Operation(summary = "Stream chat response (GET)", 
                description = "For EventSource/SSE - pass message as query parameter")
     public Flux<StreamingChatResponse> streamChatGet(
-            @RequestParam String message,
-            @RequestParam(required = false) String sessionId,
+            @RequestParam @NotBlank(message = "Message cannot be blank") @Size(min = 1, max = 4000, message = "Message must be between 1 and 4000 characters") String message,
+            @RequestParam(required = false) @Size(max = 100, message = "Session ID cannot exceed 100 characters") String sessionId,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         
         log.info("Received GET streaming request. CorrelationId: {}, Message: {}", 

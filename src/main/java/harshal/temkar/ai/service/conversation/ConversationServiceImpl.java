@@ -1,16 +1,22 @@
 package harshal.temkar.ai.service.conversation;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import harshal.temkar.ai.config.ConversationCacheProperties;
+import harshal.temkar.ai.config.PromptProperties;
 import harshal.temkar.ai.model.conversation.ConversationContext;
 import harshal.temkar.ai.model.conversation.ConversationMessage;
 import harshal.temkar.ai.model.conversation.ConversationSummary;
 import harshal.temkar.ai.repository.conversation.IConversationRepository;
+import harshal.temkar.ai.service.constants.Constants;
+import harshal.temkar.ai.util.PromptTemplateLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,21 +27,23 @@ public class ConversationServiceImpl implements IConversationService {
 
     private final IConversationRepository repository;
     private final ConversationCacheProperties properties;
+    private final PromptProperties promptProperties;
+    private final PromptTemplateLoader promptTemplateLoader;
 
     @Override
     public void saveMessage(String sessionId, ConversationMessage message) {
         log.debug("Saving message for session: {}", sessionId);
-        
+
         ConversationContext context = repository.findBySessionId(sessionId)
                 .orElseGet(() -> createNewContext(sessionId));
-        
+
         // Enforce max messages limit
-        if (context.getMessages() != null && 
+        if (context.getMessages() != null &&
             context.getMessages().size() >= properties.getMaxMessagesPerSession()) {
             context.getMessages().remove(0);
             log.debug("Removed oldest message to maintain limit for session: {}", sessionId);
         }
-        
+
         context.addMessage(message);
         repository.save(sessionId, context);
     }
@@ -55,25 +63,22 @@ public class ConversationServiceImpl implements IConversationService {
     @Override
     public String buildPromptWithContext(String sessionId, String newMessage, int contextLimit) {
         List<ConversationMessage> recentMessages = getRecentMessages(sessionId, contextLimit);
-        
+
         if (recentMessages.isEmpty()) {
             return newMessage;
         }
-        
-        StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("Previous conversation:\n");
-        
-        for (ConversationMessage msg : recentMessages) {
-            promptBuilder.append(msg.getRole())
-                    .append(": ")
-                    .append(msg.getContent())
-                    .append("\n");
-        }
-        
-        promptBuilder.append("\nCurrent question: ")
-                .append(newMessage);
-        
-        return promptBuilder.toString();
+
+        String history = recentMessages.stream()
+                .map(m -> m.getRole() + ": " + m.getContent())
+                .collect(Collectors.joining("\n"));
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put(Constants.VAR_HISTORY, history);
+        vars.put(Constants.VAR_USER, newMessage);
+
+        String templatePath = promptProperties.getTemplates().getSystemPath()
+                + promptProperties.getTemplates().getConversationContextTemplate();
+        return promptTemplateLoader.loadTemplate(templatePath, vars);
     }
 
     @Override
@@ -100,7 +105,7 @@ public class ConversationServiceImpl implements IConversationService {
         log.warn("Clearing all conversations");
         repository.clear();
     }
-    
+
     private ConversationContext createNewContext(String sessionId) {
         return ConversationContext.builder()
                 .sessionId(sessionId)

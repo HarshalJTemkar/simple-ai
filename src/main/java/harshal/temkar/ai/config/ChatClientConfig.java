@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+import harshal.temkar.ai.service.constants.Constants;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -44,12 +45,12 @@ public class ChatClientConfig {
 		Map<String, ChatClient> registry = new HashMap<>();
 
 		// Ollama is always registered
-		registry.put("ollama", ollamaChatClient);
+		registry.put(Constants.PROVIDER_OLLAMA, ollamaChatClient);
 		log.info("Registered Ollama ChatClient");
 
 		// Anthropic only if API key provided
 		if (anthropicChatClient != null) {
-			registry.put("anthropic", anthropicChatClient);
+			registry.put(Constants.PROVIDER_ANTHROPIC, anthropicChatClient);
 			log.info("Registered Anthropic ChatClient");
 		}
 

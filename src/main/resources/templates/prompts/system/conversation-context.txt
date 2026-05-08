@@ -1,0 +1,4 @@
+Previous conversation:
+{history}
+
+Current question: {user}

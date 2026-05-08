@@ -20,6 +20,8 @@ public class RAGProperties {
         private Integer chunkSize; // Characters per chunk
         private Integer chunkOverlap; // Overlap between chunks
         private String strategy; // sentence, paragraph, fixed
+        /** Used when chunking by sentence: avg characters per word for overlap conversion. */
+        private Integer overlapCharsPerWord = 5;
     }
     
     @Data
@@ -34,5 +36,7 @@ public class RAGProperties {
         private String ragTemplate;
         private String noContextTemplate;
         private String citationGuidelines;
+        /** Template used to wrap each retrieved chunk into the combined RAG context. */
+        private String sourceBlockTemplate = "source-block.txt";
     }
 }

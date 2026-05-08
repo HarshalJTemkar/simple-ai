@@ -1,8 +1,7 @@
 package harshal.temkar.ai.model.chat;
 
-import javax.validation.constraints.Size;
-
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data

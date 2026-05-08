@@ -20,6 +20,13 @@ spring:
 #  main:
 #    web-application-type: NONE #if Web dependency is not added
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${MAX_UPLOAD_FILE_SIZE:25MB}
+      max-request-size: ${MAX_UPLOAD_REQUEST_SIZE:30MB}
+      file-size-threshold: 2MB
+
   ai:
     ollama:
       base-url: ${AI_OLLAMA_URL:http://localhost:11434}
@@ -99,12 +106,39 @@ app:
       ttl-minutes: 60
       max-messages-per-session: 50
 
+  chat:
+    history-context-limit: ${CHAT_HISTORY_LIMIT:5}
+    excerpt-max-length: ${CHAT_EXCERPT_MAX:200}
+    excerpt-truncation-suffix: "..."
+    default-system-prompt-fallback: "You are a helpful AI assistant. Provide accurate, concise, and helpful responses."
+    chars-per-token: 4.0
+    unknown-filename-label: "Unknown"
+
+  cache:
+    response:
+      max-size: ${RESPONSE_CACHE_MAX:1000}
+      ttl-minutes: ${RESPONSE_CACHE_TTL_MIN:15}
+      record-stats: true
+      names:
+        - chatResponses
+        - modelInfo
+        - systemPrompts
+
+  async:
+    core-pool-size: ${ASYNC_CORE_POOL:5}
+    max-pool-size: ${ASYNC_MAX_POOL:10}
+    queue-capacity: ${ASYNC_QUEUE_CAPACITY:25}
+    thread-name-prefix: "ai-async-"
+    wait-for-tasks-to-complete-on-shutdown: true
+    await-termination-seconds: 60
+
   rag:
     enabled: true
     chunking:
       chunk-size: 500
       chunk-overlap: 50
       strategy: sentence # sentence, paragraph, fixed
+      overlap-chars-per-word: 5
     retrieval:
       top-k: 5 # How many document chunks to retrieve
       similarity-threshold: 0.5 # Minimum relevance score (0-1)
@@ -113,6 +147,7 @@ app:
       rag-template: rag-prompt.txt
       no-context-template: no-context-prompt.txt
       citation-guidelines: citation-guidelines.txt
+      source-block-template: source-block.txt
 
   prompt:
     enabled: true
@@ -128,3 +163,40 @@ app:
       system-path: templates/prompts/system/
       task-path: templates/prompts/task/
       rag-path: templates/prompts/rag/
+      default-system-template: default.txt
+      prompt-builder-template: prompt-builder.txt
+      conversation-context-template: conversation-context.txt
+
+  # CORS for browser EventSource / SPA clients
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: false
+    max-age: 3600
+
+  # Document upload validation
+  upload:
+    max-file-size-bytes: ${UPLOAD_MAX_FILE_BYTES:26214400} # 25 MiB
+    allowed-content-types:
+      - application/pdf
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/msword
+      - text/plain
+      - text/markdown
+
+  # Simple per-IP rate limit for chat / RAG / streaming endpoints
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    capacity: ${RATE_LIMIT_CAPACITY:60}    # tokens per window
+    window-seconds: ${RATE_LIMIT_WINDOW:60}
+    cache:
+      max-size: ${RATE_LIMIT_CACHE_MAX:100000}
+    paths:
+      - /api/v1/chat/**
+      - /api/v1/documents/ask
+      - /api/v1/documents/upload
+
+# NOTE: Actuator/management config intentionally omitted.
+# Add 'spring-boot-starter-actuator' to pom.xml first, then re-introduce the
+# management: / info: blocks here.
