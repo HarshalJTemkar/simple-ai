@@ -20,6 +20,7 @@ import harshal.temkar.ai.model.chat.DocumentEntity;
 import harshal.temkar.ai.model.chat.DocumentUploadResponse;
 import harshal.temkar.ai.repository.DocumentChunkRepository;
 import harshal.temkar.ai.repository.DocumentRepository;
+import harshal.temkar.ai.service.constants.Constants;
 import harshal.temkar.ai.util.DocumentParser;
 import harshal.temkar.ai.util.TextChunker;
 import lombok.RequiredArgsConstructor;
@@ -75,8 +76,8 @@ public class DocumentServiceImpl implements IDocumentService {
                     .documentId(document.getId())
                     .filename(file.getOriginalFilename())
                     .chunksCreated(chunks.size())
-                    .status("SUCCESS")
-                    .message("Document uploaded and indexed successfully")
+                    .status(Constants.UPLOAD_STATUS_SUCCESS)
+                    .message(Constants.UPLOAD_SUCCESS_MESSAGE)
                     .build();
                     
         } catch (Exception e) {
@@ -123,28 +124,29 @@ public class DocumentServiceImpl implements IDocumentService {
     }
 
     private List<Document> createDocuments(List<String> chunks, DocumentEntity documentEntity) {
-        return chunks.stream()
-                .map(chunk -> {
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.put("documentId", documentEntity.getId());
-                    metadata.put("filename", documentEntity.getFilename());
-                    metadata.put("chunkIndex", chunks.indexOf(chunk));
-                    
-                    String id = UUID.randomUUID().toString();
-                    return new Document(id, chunk, metadata);
-                })
-                .collect(Collectors.toList());
+        List<Document> docs = new java.util.ArrayList<>(chunks.size());
+        for (int i = 0; i < chunks.size(); i++) {
+            String chunk = chunks.get(i);
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put(Constants.META_DOCUMENT_ID, documentEntity.getId());
+            metadata.put(Constants.META_FILENAME, documentEntity.getFilename());
+            metadata.put(Constants.META_CHUNK_INDEX, i);
+
+            String id = UUID.randomUUID().toString();
+            docs.add(new Document(id, chunk, metadata));
+        }
+        return docs;
     }
 
     private void saveChunkMetadata(List<Document> documents, Long documentId) {
         documents.forEach(doc -> {
             DocumentChunkEntity chunk = DocumentChunkEntity.builder()
                     .documentId(documentId)
-                    .chunkIndex((Integer) doc.getMetadata().get("chunkIndex"))
+                    .chunkIndex((Integer) doc.getMetadata().get(Constants.META_CHUNK_INDEX))
                     .content(doc.getText())
                     .vectorStoreId(doc.getId())
                     .build();
-            
+
             chunkRepository.save(chunk);
         });
     }

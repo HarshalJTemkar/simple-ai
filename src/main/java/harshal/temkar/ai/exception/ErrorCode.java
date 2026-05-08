@@ -16,7 +16,9 @@ public enum ErrorCode {
 	INTERNAL_ERROR("AI-5001", "Internal server error", HttpStatus.INTERNAL_SERVER_ERROR),
 	PROMPT_TOO_LONG("AI-1002", "Prompt exceeds maximum length", HttpStatus.BAD_REQUEST),
 	INVALID_MODEL("AI-1003", "Invalid model specified", HttpStatus.BAD_REQUEST),
-	STREAMING_ERROR("AI-6001", "Streaming error occurred", HttpStatus.INTERNAL_SERVER_ERROR);
+	STREAMING_ERROR("AI-6001", "Streaming error occurred", HttpStatus.INTERNAL_SERVER_ERROR),
+	FILE_TOO_LARGE("AI-1004", "Uploaded file exceeds the maximum allowed size", HttpStatus.PAYLOAD_TOO_LARGE),
+	UNSUPPORTED_FILE_TYPE("AI-1005", "Uploaded file type is not supported", HttpStatus.UNSUPPORTED_MEDIA_TYPE);
 
 	private final String code;
 	private final String message;

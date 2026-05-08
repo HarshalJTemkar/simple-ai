@@ -6,6 +6,7 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import harshal.temkar.ai.service.constants.Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -14,23 +15,20 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class CorrelationIdInterceptor implements HandlerInterceptor {
 
-	private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
-	private static final String CORRELATION_ID_MDC_KEY = "correlationId";
-
 	@Override
 	public boolean preHandle(
 			HttpServletRequest request, 
 			HttpServletResponse response, 
 			Object handler) {
 		
-		String correlationId = request.getHeader(CORRELATION_ID_HEADER);
+		String correlationId = request.getHeader(Constants.HEADER_CORRELATION_ID);
 
 		if (correlationId == null || correlationId.isBlank()) {
 			correlationId = UUID.randomUUID().toString();
 		}
 
-		MDC.put(CORRELATION_ID_MDC_KEY, correlationId);
-		response.setHeader(CORRELATION_ID_HEADER, correlationId);
+		MDC.put(Constants.MDC_CORRELATION_ID, correlationId);
+		response.setHeader(Constants.HEADER_CORRELATION_ID, correlationId);
 
 		return true;
 	}
@@ -42,6 +40,6 @@ public class CorrelationIdInterceptor implements HandlerInterceptor {
 			Object handler,
 			Exception ex) {
 		
-		MDC.remove(CORRELATION_ID_MDC_KEY);
+		MDC.remove(Constants.MDC_CORRELATION_ID);
 	}
 }

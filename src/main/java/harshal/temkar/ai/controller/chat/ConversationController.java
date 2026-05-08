@@ -5,12 +5,16 @@ import harshal.temkar.ai.model.conversation.ConversationSummary;
 import harshal.temkar.ai.service.conversation.IConversationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/v1/conversations")
 @RequiredArgsConstructor
@@ -21,7 +25,8 @@ public class ConversationController {
 
     @GetMapping("/{sessionId}")
     @Operation(summary = "Get conversation context", description = "Retrieve full conversation history")
-    public ResponseEntity<ConversationContext> getConversation(@PathVariable String sessionId) {
+    public ResponseEntity<ConversationContext> getConversation(
+            @PathVariable @NotBlank @Size(max = 100, message = "Session ID cannot exceed 100 characters") String sessionId) {
         log.info("Retrieving conversation: {}", sessionId);
         return conversationService.getContext(sessionId)
                 .map(ResponseEntity::ok)
@@ -30,7 +35,8 @@ public class ConversationController {
 
     @GetMapping("/{sessionId}/summary")
     @Operation(summary = "Get conversation summary", description = "Retrieve conversation metadata")
-    public ResponseEntity<ConversationSummary> getSummary(@PathVariable String sessionId) {
+    public ResponseEntity<ConversationSummary> getSummary(
+            @PathVariable @NotBlank @Size(max = 100, message = "Session ID cannot exceed 100 characters") String sessionId) {
         log.info("Retrieving conversation summary: {}", sessionId);
         ConversationSummary summary = conversationService.getSummary(sessionId);
         return summary != null ? ResponseEntity.ok(summary) : ResponseEntity.notFound().build();
@@ -38,7 +44,8 @@ public class ConversationController {
 
     @DeleteMapping("/{sessionId}")
     @Operation(summary = "Delete conversation", description = "Remove conversation from cache")
-    public ResponseEntity<Void> deleteConversation(@PathVariable String sessionId) {
+    public ResponseEntity<Void> deleteConversation(
+            @PathVariable @NotBlank @Size(max = 100, message = "Session ID cannot exceed 100 characters") String sessionId) {
         log.info("Deleting conversation: {}", sessionId);
         conversationService.deleteConversation(sessionId);
         return ResponseEntity.noContent().build();

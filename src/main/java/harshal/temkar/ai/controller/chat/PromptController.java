@@ -1,6 +1,7 @@
 package harshal.temkar.ai.controller.chat;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,10 +16,14 @@ import harshal.temkar.ai.model.chat.PromptRole;
 import harshal.temkar.ai.service.prompt.IPromptService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/v1/prompts")
 @RequiredArgsConstructor
@@ -37,16 +42,16 @@ public class PromptController {
     @PostMapping("/optimize")
     @Operation(summary = "Optimize prompt", description = "Optimize a prompt for token efficiency")
     public ResponseEntity<OptimizedPrompt> optimizePrompt(
-            @RequestParam(required = false) String systemPrompt,
-            @RequestParam String userPrompt) {
-        
+            @RequestParam(required = false) @Size(max = 2000, message = "System prompt cannot exceed 2000 characters") String systemPrompt,
+            @RequestParam @NotBlank(message = "User prompt cannot be blank") @Size(max = 8000, message = "User prompt cannot exceed 8000 characters") String userPrompt) {
+
         log.info("Optimizing prompt");
         return ResponseEntity.ok(promptService.optimizePrompt(systemPrompt, userPrompt));
     }
 
     @PostMapping("/build")
     @Operation(summary = "Build optimized prompt", description = "Build and optimize a complete prompt")
-    public ResponseEntity<OptimizedPrompt> buildPrompt(@RequestBody PromptContext context) {
+    public ResponseEntity<OptimizedPrompt> buildPrompt(@Valid @RequestBody PromptContext context) {
         log.info("Building prompt for role: {}", context.getRole());
         return ResponseEntity.ok(promptService.buildOptimizedPrompt(context));
     }

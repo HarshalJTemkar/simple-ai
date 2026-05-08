@@ -1,0 +1,7 @@
+{system}
+
+### Previous Conversation:
+{history}
+
+### User Request:
+{user}
